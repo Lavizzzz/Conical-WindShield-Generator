@@ -3,6 +3,16 @@ const diametroPentolinoInput = document.getElementById("diametroPentolino");
 const altezzaPentolinoInput = document.getElementById("altezzaPentolino");
 const altezzaFornelloInput = document.getElementById("altezzaFornello");
 
+// === INPUT PRESE D'ARIA ===
+const preseAriaCheckbox = document.getElementById("preseAria");
+const preseAriaOptions = document.getElementById("preseAriaOptions");
+const numeroForiCalcolatoSpan = document.getElementById("numeroForiCalcolato");
+
+const diametroFori = 6;      // mm
+const distanzaFori = 1.5;
+const altezzaForiFondo = 10;     // 1 cm dal fondo
+const altezzaForiAlto = 20;      // 2 cm dall'alto (NUOVO!)
+
 const diametroBaseSpan = document.getElementById("diametroBase");
 const altezzaParaventoSpan = document.getElementById("altezzaParavento");
 const dimensioneFoglioSpan = document.getElementById("dimensioneFoglio");
@@ -15,23 +25,74 @@ const ctx = canvas.getContext("2d");
 const canvasFlatPattern = document.getElementById("canvasFlatPattern");
 const ctxFlat = canvasFlatPattern.getContext("2d");
 
+// === TOGGLE PRESE D'ARIA ===
+preseAriaCheckbox.addEventListener("change", (e) => {
+    preseAriaOptions.style.display = e.target.checked ? "grid" : "none";
+});
+
 // === CALCOLO ===
 document.getElementById("calcolaBtn").addEventListener("click", () => {
     const dp = parseFloat(diametroPentolinoInput.value);
     const hp = parseFloat(altezzaPentolinoInput.value);
     const hf = parseFloat(altezzaFornelloInput.value);
-    const ha = 25; // spazio di aria tra fornellino e fondo del pentolino
 
     const baseDiameter = dp * 1.261;
-    const windscreenHeight = hp + hf + ha;
+    const windscreenHeight = hp + hf + 25;
 
     diametroBaseSpan.textContent = baseDiameter.toFixed(2);
     altezzaParaventoSpan.textContent = windscreenHeight.toFixed(2);
     dimensioneFoglioSpan.textContent =
         `${windscreenHeight.toFixed(2)} x ${(baseDiameter * Math.PI).toFixed(2)}`;
 
+    const preseAria = preseAriaCheckbox.checked;
+
+    // Calcola numero fori per ENTRAMBE le altezze
+    let numeroForiFondo = 0;
+    let numeroForiAlto = 0;
+
+    if (preseAria && distanzaFori > 0) {
+        const topRadius = dp / 2;
+        const baseRadius = baseDiameter / 2;
+
+        // FORI DAL FONDO (10mm)
+        const altezzaForiFondoPercent = (windscreenHeight - altezzaForiFondo) / windscreenHeight;
+        const raggioForiFondo = topRadius + (baseRadius - topRadius) * altezzaForiFondoPercent;
+        const circonferenzaForiFondo = 2 * Math.PI * raggioForiFondo;
+
+        // FORI DALL'ALTO (20mm)
+        const altezzaForiAltoPercent = altezzaForiAlto / windscreenHeight;
+        const raggioForiAlto = topRadius + (baseRadius - topRadius) * altezzaForiAltoPercent;
+        const circonferenzaForiAlto = 2 * Math.PI * raggioForiAlto;
+
+        // Angolo del settore
+        const slantHeight = Math.sqrt(
+            Math.pow(windscreenHeight, 2) +
+            Math.pow(baseRadius - topRadius, 2)
+        );
+        const R = (slantHeight * baseRadius) / (baseRadius - topRadius);
+        const sectorAngleDeg = (360 * baseRadius) / R;
+        const percentualeCirconferenza = sectorAngleDeg / 360;
+
+        // Circonferenza effettiva per entrambe le altezze
+        const circonferenzaEffettivaFondo = circonferenzaForiFondo * percentualeCirconferenza;
+        const circonferenzaEffettivaAlto = circonferenzaForiAlto * percentualeCirconferenza;
+
+        // Rimuovi 20% per le linguette (10% per lato)
+        const circonferenzaUtileFondo = circonferenzaEffettivaFondo * 0.8;
+        const circonferenzaUtileAlto = circonferenzaEffettivaAlto * 0.8;
+
+        // Calcola numero di fori
+        numeroForiFondo = Math.floor(circonferenzaUtileFondo / distanzaFori);
+        numeroForiAlto = Math.floor(circonferenzaUtileAlto / distanzaFori);
+
+        // Mostra totale fori
+        numeroForiCalcolatoSpan.textContent = `${numeroForiFondo} (fondo) + ${numeroForiAlto} (alto) = ${numeroForiFondo + numeroForiAlto}`;
+    } else {
+        numeroForiCalcolatoSpan.textContent = "0";
+    }
+
     drawWindshield(dp, baseDiameter, windscreenHeight, hf, hp);
-    drawFlatPattern(dp, baseDiameter, windscreenHeight);
+    drawFlatPattern(dp, baseDiameter, windscreenHeight, numeroForiFondo, numeroForiAlto, diametroFori, altezzaForiFondo, altezzaForiAlto);
 });
 
 // ============================================================
@@ -84,15 +145,74 @@ function drawWindshield(dp, db, hpv, hf, hp) {
 }
 
 // ============================================================
+// FUNZIONE 2B: DISEGNA PRESE D'ARIA (DUE SERIE)
+// ============================================================
+function drawVentilationHoles(originX, originY, scaledR, scaledr, angleRad,
+    numeroForiFondo, numeroForiAlto,
+    diametroFori, altezzaForiFondo, altezzaForiAlto,
+    windscreenHeight, R, r, scale) {
+
+    const slantHeight = R - r;
+    const esclusioneLinguetta = angleRad * 0.1;
+    const angoloUtile = angleRad - 2 * esclusioneLinguetta;
+
+    // === PRIMA SERIE: FORI DAL FONDO (10mm) ===
+    if (numeroForiFondo > 0) {
+        ctxFlat.strokeStyle = "#ef4444";
+        ctxFlat.fillStyle = "rgba(239, 68, 68, 0.1)";
+        ctxFlat.lineWidth = 2;
+
+        const altezzaForiFondoPercent = (windscreenHeight - altezzaForiFondo) / windscreenHeight;
+        const raggioPosizioneFondo = r + (slantHeight * altezzaForiFondoPercent);
+        const stepAngoloFondo = angoloUtile / (numeroForiFondo + 1);
+
+        for (let i = 1; i <= numeroForiFondo; i++) {
+            const angolo = -angleRad / 2 + esclusioneLinguetta + (stepAngoloFondo * i);
+            const xForo = originX + (raggioPosizioneFondo * scale) * Math.cos(angolo);
+            const yForo = originY - (raggioPosizioneFondo * scale) * Math.sin(angolo);
+            const raggioForo = (diametroFori / 2) * scale;
+
+            ctxFlat.beginPath();
+            ctxFlat.arc(xForo, yForo, raggioForo, 0, 2 * Math.PI);
+            ctxFlat.stroke();
+            ctxFlat.fill();
+        }
+    }
+
+    // === SECONDA SERIE: FORI DALL'ALTO (20mm) ===
+    if (numeroForiAlto > 0) {
+        ctxFlat.strokeStyle = "#3b82f6";  // Blu per distinguere
+        ctxFlat.fillStyle = "rgba(59, 130, 246, 0.1)";
+        ctxFlat.lineWidth = 2;
+
+        const altezzaForiAltoPercent = altezzaForiAlto / windscreenHeight;
+        const raggioPosizioneAlto = r + (slantHeight * altezzaForiAltoPercent);
+        const stepAngoloAlto = angoloUtile / (numeroForiAlto + 1);
+
+        for (let i = 1; i <= numeroForiAlto; i++) {
+            const angolo = -angleRad / 2 + esclusioneLinguetta + (stepAngoloAlto * i);
+            const xForo = originX + (raggioPosizioneAlto * scale) * Math.cos(angolo);
+            const yForo = originY - (raggioPosizioneAlto * scale) * Math.sin(angolo);
+            const raggioForo = (diametroFori / 2) * scale;
+
+            ctxFlat.beginPath();
+            ctxFlat.arc(xForo, yForo, raggioForo, 0, 2 * Math.PI);
+            ctxFlat.stroke();
+            ctxFlat.fill();
+        }
+    }
+}
+
+// ============================================================
 // FUNZIONE 2: SVILUPPO PIANO CONO (CENTRATO CORRETTAMENTE)
 // ============================================================
-function drawFlatPattern(dp, baseDiameter, windscreenHeight) {
+function drawFlatPattern(dp, baseDiameter, windscreenHeight, numeroForiFondo = 0, numeroForiAlto = 0, diametroFori = 0, altezzaForiFondo = 0, altezzaForiAlto = 0) {
     const topRadius = dp / 2;
     const baseRadius = baseDiameter / 2;
 
     // === PARAMETRI CHIUSURA A SCORRIMENTO ===
-    const overlapInner = 5; // mm → linguetta interna (da ripiegare dentro)
-    const overlapOuter = 5; // mm → linguetta esterna (da ripiegare fuori)
+    const overlapInner = 10; // mm → linguetta interna (da ripiegare dentro)
+    const overlapOuter = 10; // mm → linguetta esterna (da ripiegare fuori)
 
     // === GEOMETRIA ===
     const slantHeight = Math.sqrt(
@@ -134,7 +254,7 @@ function drawFlatPattern(dp, baseDiameter, windscreenHeight) {
     // Calcola i limiti reali della forma
     for (let i = 0; i <= segments; i++) {
         const a = -angleRad / 2 + (i / segments) * angleRad;
-        
+
         // Arco esterno
         let x = R * Math.cos(a);
         let y = -R * Math.sin(a);
@@ -142,7 +262,7 @@ function drawFlatPattern(dp, baseDiameter, windscreenHeight) {
         maxX = Math.max(maxX, x);
         minY = Math.min(minY, y);
         maxY = Math.max(maxY, y);
-        
+
         // Arco interno
         x = r * Math.cos(a);
         y = -r * Math.sin(a);
@@ -169,11 +289,11 @@ function drawFlatPattern(dp, baseDiameter, windscreenHeight) {
     // Centro della zona disponibile
     const zoneCenterX = yellowZoneX + yellowZoneWidth / 2;
     const zoneCenterY = yellowZoneY + yellowZoneHeight / 2;
-    
+
     // Centro del bounding box della forma (in coordinate scalate)
     const shapeCenterX = (minX + maxX) / 2 * scale;
     const shapeCenterY = (minY + maxY) / 2 * scale;
-    
+
     // Vertice del settore circolare (punto di origine)
     const originX = zoneCenterX - shapeCenterX;
     const originY = zoneCenterY - shapeCenterY;
@@ -287,17 +407,17 @@ function drawFlatPattern(dp, baseDiameter, windscreenHeight) {
         220,
         75
     );
-    
+
     // === LEGENDA CHIUSURA ===
     const legendX = canvasFlatPattern.width - 250;
     const legendY = 55;
-    
+
     ctxFlat.fillStyle = "#000";
     ctxFlat.font = "bold 12px Arial";
     ctxFlat.fillText("CHIUSURA A SCORRIMENTO:", legendX, legendY);
-    
+
     ctxFlat.font = "11px Arial";
-    
+
     // Linea blu
     ctxFlat.strokeStyle = "#3b82f6";
     ctxFlat.lineWidth = 2;
@@ -309,7 +429,7 @@ function drawFlatPattern(dp, baseDiameter, windscreenHeight) {
     ctxFlat.setLineDash([]);
     ctxFlat.fillStyle = "#3b82f6";
     ctxFlat.fillText("Piega INTERNA (5mm)", legendX + 35, legendY + 15);
-    
+
     // Linea rossa
     ctxFlat.strokeStyle = "#ef4444";
     ctxFlat.lineWidth = 2;
@@ -321,36 +441,126 @@ function drawFlatPattern(dp, baseDiameter, windscreenHeight) {
     ctxFlat.setLineDash([]);
     ctxFlat.fillStyle = "#ef4444";
     ctxFlat.fillText("Piega ESTERNA (5mm)", legendX + 35, legendY + 30);
-}
 
-// ============================================================
-// FUNZIONE 3: DOWNLOAD SVG CONO (CORRETTO)
-// ============================================================
-document.getElementById("downloadSvgBtn").addEventListener("click", () => {
-    exportConeSVG(
-        parseFloat(diametroPentolinoInput.value),
-        parseFloat(diametroBaseSpan.textContent),
-        parseFloat(altezzaParaventoSpan.textContent)
-    );
-});
+
+    // === DISEGNA I FORI (SE ABILITATI) ===
+    if (numeroForiFondo > 0 || numeroForiAlto > 0) {
+        drawVentilationHoles(
+            originX, originY, scaledR, scaledr, angleRad,
+            numeroForiFondo, numeroForiAlto,
+            diametroFori, altezzaForiFondo, altezzaForiAlto,
+            windscreenHeight, R, r, scale
+        );
+    }
+}
 
 // ============================================================
 // FUNZIONE 4: DOWNLOAD PDF (SCALA REALE PER STAMPA A4)
 // ============================================================
-document.getElementById("downloadPdfBtn").addEventListener("click", () => {
-    exportConePDF(
-        parseFloat(diametroPentolinoInput.value),
-        parseFloat(diametroBaseSpan.textContent),
-        parseFloat(altezzaParaventoSpan.textContent)
-    );
+document.getElementById("downloadSvgBtn").addEventListener("click", () => {
+    const preseAria = preseAriaCheckbox.checked;
+    
+    // Ricalcola numero fori per ENTRAMBE le serie
+    const dp = parseFloat(diametroPentolinoInput.value);
+    const baseDiameter = parseFloat(diametroBaseSpan.textContent);
+    const windscreenHeight = parseFloat(altezzaParaventoSpan.textContent);
+    
+    let numeroForiFondo = 0;
+    let numeroForiAlto = 0;
+    
+    if (preseAria && distanzaFori > 0) {
+        const topRadius = dp / 2;
+        const baseRadius = baseDiameter / 2;
+        
+        // CALCOLO FORI DAL FONDO (10mm)
+        const altezzaForiFondoPercent = (windscreenHeight - altezzaForiFondo) / windscreenHeight;
+        const raggioForiFondo = topRadius + (baseRadius - topRadius) * altezzaForiFondoPercent;
+        const circonferenzaForiFondo = 2 * Math.PI * raggioForiFondo;
+        
+        // CALCOLO FORI DALL'ALTO (20mm)
+        const altezzaForiAltoPercent = altezzaForiAlto / windscreenHeight;
+        const raggioForiAlto = topRadius + (baseRadius - topRadius) * altezzaForiAltoPercent;
+        const circonferenzaForiAlto = 2 * Math.PI * raggioForiAlto;
+        
+        // Calcolo angolo settore
+        const slantHeight = Math.sqrt(
+            Math.pow(windscreenHeight, 2) + 
+            Math.pow(baseRadius - topRadius, 2)
+        );
+        const R = (slantHeight * baseRadius) / (baseRadius - topRadius);
+        const sectorAngleDeg = (360 * baseRadius) / R;
+        const percentualeCirconferenza = sectorAngleDeg / 360;
+        
+        // Circonferenze effettive
+        const circonferenzaEffettivaFondo = circonferenzaForiFondo * percentualeCirconferenza;
+        const circonferenzaEffettivaAlto = circonferenzaForiAlto * percentualeCirconferenza;
+        
+        // Rimuovi 20% per le linguette
+        const circonferenzaUtileFondo = circonferenzaEffettivaFondo * 0.8;
+        const circonferenzaUtileAlto = circonferenzaEffettivaAlto * 0.8;
+        
+        numeroForiFondo = Math.floor(circonferenzaUtileFondo / distanzaFori);
+        numeroForiAlto = Math.floor(circonferenzaUtileAlto / distanzaFori);
+    }
+    
+    exportConeSVG(dp, baseDiameter, windscreenHeight, numeroForiFondo, numeroForiAlto, diametroFori, altezzaForiFondo, altezzaForiAlto);
 });
 
-function exportConeSVG(dp, baseDiameter, windscreenHeight) {
+document.getElementById("downloadPdfBtn").addEventListener("click", () => {
+    const preseAria = preseAriaCheckbox.checked;
+    
+    // Ricalcola numero fori per ENTRAMBE le serie
+    const dp = parseFloat(diametroPentolinoInput.value);
+    const baseDiameter = parseFloat(diametroBaseSpan.textContent);
+    const windscreenHeight = parseFloat(altezzaParaventoSpan.textContent);
+    
+    let numeroForiFondo = 0;
+    let numeroForiAlto = 0;
+    
+    if (preseAria && distanzaFori > 0) {
+        const topRadius = dp / 2;
+        const baseRadius = baseDiameter / 2;
+        
+        // CALCOLO FORI DAL FONDO (10mm)
+        const altezzaForiFondoPercent = (windscreenHeight - altezzaForiFondo) / windscreenHeight;
+        const raggioForiFondo = topRadius + (baseRadius - topRadius) * altezzaForiFondoPercent;
+        const circonferenzaForiFondo = 2 * Math.PI * raggioForiFondo;
+        
+        // CALCOLO FORI DALL'ALTO (20mm)
+        const altezzaForiAltoPercent = altezzaForiAlto / windscreenHeight;
+        const raggioForiAlto = topRadius + (baseRadius - topRadius) * altezzaForiAltoPercent;
+        const circonferenzaForiAlto = 2 * Math.PI * raggioForiAlto;
+        
+        // Calcolo angolo settore
+        const slantHeight = Math.sqrt(
+            Math.pow(windscreenHeight, 2) + 
+            Math.pow(baseRadius - topRadius, 2)
+        );
+        const R = (slantHeight * baseRadius) / (baseRadius - topRadius);
+        const sectorAngleDeg = (360 * baseRadius) / R;
+        const percentualeCirconferenza = sectorAngleDeg / 360;
+        
+        // Circonferenze effettive
+        const circonferenzaEffettivaFondo = circonferenzaForiFondo * percentualeCirconferenza;
+        const circonferenzaEffettivaAlto = circonferenzaForiAlto * percentualeCirconferenza;
+        
+        // Rimuovi 20% per le linguette
+        const circonferenzaUtileFondo = circonferenzaEffettivaFondo * 0.8;
+        const circonferenzaUtileAlto = circonferenzaEffettivaAlto * 0.8;
+        
+        numeroForiFondo = Math.floor(circonferenzaUtileFondo / distanzaFori);
+        numeroForiAlto = Math.floor(circonferenzaUtileAlto / distanzaFori);
+    }
+    
+    exportConePDF(dp, baseDiameter, windscreenHeight, numeroForiFondo, numeroForiAlto, diametroFori, altezzaForiFondo, altezzaForiAlto);
+});
+
+function exportConeSVG(dp, baseDiameter, windscreenHeight, numeroFori = 0, diametroFori = 0, altezzaFori = 0) {
     // ===== GEOMETRIA =====
     const topRadius = dp / 2;
     const baseRadius = baseDiameter / 2;
-    const overlapInner = 5;
-    const overlapOuter = 5;
+    const overlapInner = 10;
+    const overlapOuter = 10;
 
     const slantHeight = Math.sqrt(
         windscreenHeight ** 2 + (baseRadius - topRadius) ** 2
@@ -363,21 +573,21 @@ function exportConeSVG(dp, baseDiameter, windscreenHeight) {
     const angle = sectorAngle + (overlapInner / R) + (overlapOuter / R);
 
     const steps = 300;
-    
+
     // ===== CALCOLO BOUNDING BOX =====
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
 
     for (let i = 0; i <= steps; i++) {
         const a = -angle / 2 + (i / steps) * angle;
-        
+
         let x = R * Math.cos(a);
         let y = -R * Math.sin(a);
         minX = Math.min(minX, x);
         maxX = Math.max(maxX, x);
         minY = Math.min(minY, y);
         maxY = Math.max(maxY, y);
-        
+
         x = r * Math.cos(a);
         y = -r * Math.sin(a);
         minX = Math.min(minX, x);
@@ -408,6 +618,51 @@ function exportConeSVG(dp, baseDiameter, windscreenHeight) {
 
     d += "Z";
 
+    // ===== CALCOLA FORI (DUE SERIE) =====
+    let holesMarkup = "";
+
+    // SERIE 1: FORI DAL FONDO (rosso)
+    if (numeroForiFondo > 0 && diametroFori > 0) {
+        const slantHeight = R - r;
+        const altezzaForiFondoPercent = (windscreenHeight - altezzaForiFondo) / windscreenHeight;
+        const raggioFondo = r + (slantHeight * altezzaForiFondoPercent);
+
+        const esclusioneLinguetta = angle * 0.1;
+        const angoloUtile = angle - 2 * esclusioneLinguetta;
+        const stepAngolo = angoloUtile / (numeroForiFondo + 1);
+
+        for (let i = 1; i <= numeroForiFondo; i++) {
+            const angolo = -angle / 2 + esclusioneLinguetta + (stepAngolo * i);
+            const xForo = raggioFondo * Math.cos(angolo) - minX;
+            const yForo = -raggioFondo * Math.sin(angolo) - minY;
+            const raggioForo = diametroFori / 2;
+
+            holesMarkup += `\n    <circle cx="${xForo}" cy="${yForo}" r="${raggioForo}" 
+                fill="none" stroke="red" stroke-width="0.3"/>`;
+        }
+    }
+
+    // SERIE 2: FORI DALL'ALTO (blu)
+    if (numeroForiAlto > 0 && diametroFori > 0) {
+        const slantHeight = R - r;
+        const altezzaForiAltoPercent = altezzaForiAlto / windscreenHeight;
+        const raggioAlto = r + (slantHeight * altezzaForiAltoPercent);
+
+        const esclusioneLinguetta = angle * 0.1;
+        const angoloUtile = angle - 2 * esclusioneLinguetta;
+        const stepAngolo = angoloUtile / (numeroForiAlto + 1);
+
+        for (let i = 1; i <= numeroForiAlto; i++) {
+            const angolo = -angle / 2 + esclusioneLinguetta + (stepAngolo * i);
+            const xForo = raggioAlto * Math.cos(angolo) - minX;
+            const yForo = -raggioAlto * Math.sin(angolo) - minY;
+            const raggioForo = diametroFori / 2;
+
+            holesMarkup += `\n    <circle cx="${xForo}" cy="${yForo}" r="${raggioForo}" 
+                fill="none" stroke="blue" stroke-width="0.3"/>`;
+        }
+    }
+
     // ===== SVG =====
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
@@ -421,22 +676,24 @@ function exportConeSVG(dp, baseDiameter, windscreenHeight) {
           stroke-width="0.4"/>
     
     <!-- Linea piega INTERNA (blu tratteggiata) -->
-    <line x1="${(R * Math.cos(-angle/2 + overlapInner/R) - minX)}"
-          y1="${(-R * Math.sin(-angle/2 + overlapInner/R) - minY)}"
-          x2="${(r * Math.cos(-angle/2 + overlapInner/R) - minX)}"
-          y2="${(-r * Math.sin(-angle/2 + overlapInner/R) - minY)}"
+    <line x1="${(R * Math.cos(-angle / 2 + overlapInner / R) - minX)}"
+          y1="${(-R * Math.sin(-angle / 2 + overlapInner / R) - minY)}"
+          x2="${(r * Math.cos(-angle / 2 + overlapInner / R) - minX)}"
+          y2="${(-r * Math.sin(-angle / 2 + overlapInner / R) - minY)}"
           stroke="blue"
           stroke-width="0.3"
           stroke-dasharray="2,2"/>
     
     <!-- Linea piega ESTERNA (rosso tratteggiata) -->
-    <line x1="${(R * Math.cos(angle/2 - overlapOuter/R) - minX)}"
-          y1="${(-R * Math.sin(angle/2 - overlapOuter/R) - minY)}"
-          x2="${(r * Math.cos(angle/2 - overlapOuter/R) - minX)}"
-          y2="${(-r * Math.sin(angle/2 - overlapOuter/R) - minY)}"
+    <line x1="${(R * Math.cos(angle / 2 - overlapOuter / R) - minX)}"
+          y1="${(-R * Math.sin(angle / 2 - overlapOuter / R) - minY)}"
+          x2="${(r * Math.cos(angle / 2 - overlapOuter / R) - minX)}"
+          y2="${(-r * Math.sin(angle / 2 - overlapOuter / R) - minY)}"
           stroke="red"
           stroke-width="0.3"
           stroke-dasharray="2,2"/>
+    
+    <!-- Prese d'aria -->${holesMarkup}
 </svg>`;
 
     // ===== DOWNLOAD =====
@@ -452,20 +709,18 @@ function exportConeSVG(dp, baseDiameter, windscreenHeight) {
     URL.revokeObjectURL(url);
 }
 
-function exportConePDF(dp, baseDiameter, windscreenHeight) {
+function exportConePDF(dp, baseDiameter, windscreenHeight, numeroForiFondo = 0, numeroForiAlto = 0, diametroFori = 0, altezzaForiFondo = 0, altezzaForiAlto = 0) {
+
     // ===== GEOMETRIA =====
     const topRadius = dp / 2;
     const baseRadius = baseDiameter / 2;
-    const overlapInner = 5;
-    const overlapOuter = 5;
-
+    const overlapInner = 10;
+    const overlapOuter = 10;
     const slantHeight = Math.sqrt(
         windscreenHeight ** 2 + (baseRadius - topRadius) ** 2
     );
-
     const R = (slantHeight * baseRadius) / (baseRadius - topRadius);
     const r = R - slantHeight;
-
     const sectorAngle = (2 * Math.PI * baseRadius) / R;
     const angle = sectorAngle + (overlapInner / R) + (overlapOuter / R);
 
@@ -473,28 +728,23 @@ function exportConePDF(dp, baseDiameter, windscreenHeight) {
     const A4_WIDTH_MM = 210;
     const A4_HEIGHT_MM = 297;
     const MM_TO_PT = 2.834645669;
-    
     const pageWidth = A4_WIDTH_MM * MM_TO_PT;
     const pageHeight = A4_HEIGHT_MM * MM_TO_PT;
-    
     const margin = 10 * MM_TO_PT; // 10mm di margine
-
     const steps = 300;
-    
+
     // ===== CALCOLO BOUNDING BOX in mm =====
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
 
     for (let i = 0; i <= steps; i++) {
         const a = -angle / 2 + (i / steps) * angle;
-        
         let x = R * Math.cos(a);
         let y = -R * Math.sin(a);
         minX = Math.min(minX, x);
         maxX = Math.max(maxX, x);
         minY = Math.min(minY, y);
         maxY = Math.max(maxY, y);
-        
         x = r * Math.cos(a);
         y = -r * Math.sin(a);
         minX = Math.min(minX, x);
@@ -509,12 +759,11 @@ function exportConePDF(dp, baseDiameter, windscreenHeight) {
     // ===== CALCOLO SCALA PER FIT IN A4 =====
     const availableWidth = A4_WIDTH_MM - 2 * 10; // margini
     const availableHeight = A4_HEIGHT_MM - 2 * 10;
-    
     let scale = 1;
     let numPages = 1;
     let pagesX = 1;
     let pagesY = 1;
-    
+
     // Se la forma è troppo grande, calcola quante pagine servono
     if (widthMM > availableWidth || heightMM > availableHeight) {
         pagesX = Math.ceil(widthMM / availableWidth);
@@ -548,20 +797,22 @@ function exportConePDF(dp, baseDiameter, windscreenHeight) {
 
             // Arco esterno
             let started = false;
+            let prevX, prevY;
+
             for (let i = 0; i <= steps; i++) {
                 const a = -angle / 2 + (i / steps) * angle;
                 const x = (R * Math.cos(a) - minX) * scale - offsetX + 10;
                 const y = (-R * Math.sin(a) - minY) * scale - offsetY + 10;
-                
+
                 // Disegna solo se il punto è visibile in questa pagina
                 if (x >= 0 && x <= A4_WIDTH_MM && y >= 0 && y <= A4_HEIGHT_MM) {
                     if (!started) {
                         started = true;
-                    } else {
+                    } else if (prevX !== undefined) {
                         pdf.line(prevX, prevY, x, y);
                     }
-                    var prevX = x;
-                    var prevY = y;
+                    prevX = x;
+                    prevY = y;
                 }
             }
 
@@ -570,7 +821,7 @@ function exportConePDF(dp, baseDiameter, windscreenHeight) {
                 const a = -angle / 2 + (i / steps) * angle;
                 const x = (r * Math.cos(a) - minX) * scale - offsetX + 10;
                 const y = (-r * Math.sin(a) - minY) * scale - offsetY + 10;
-                
+
                 if (x >= 0 && x <= A4_WIDTH_MM && y >= 0 && y <= A4_HEIGHT_MM) {
                     if (prevX !== undefined) {
                         pdf.line(prevX, prevY, x, y);
@@ -586,7 +837,7 @@ function exportConePDF(dp, baseDiameter, windscreenHeight) {
                 const y1 = (-R * Math.sin(a) - minY) * scale - offsetY + 10;
                 const x2 = (r * Math.cos(a) - minX) * scale - offsetX + 10;
                 const y2 = (-r * Math.sin(a) - minY) * scale - offsetY + 10;
-                
+
                 if (x1 >= 0 && x1 <= A4_WIDTH_MM && y1 >= 0 && y1 <= A4_HEIGHT_MM) {
                     pdf.line(x1, y1, x2, y2);
                 }
@@ -601,6 +852,7 @@ function exportConePDF(dp, baseDiameter, windscreenHeight) {
             const yi1 = (-R * Math.sin(angleInner) - minY) * scale - offsetY + 10;
             const xi2 = (r * Math.cos(angleInner) - minX) * scale - offsetX + 10;
             const yi2 = (-r * Math.sin(angleInner) - minY) * scale - offsetY + 10;
+
             if (xi1 >= 0 && xi1 <= A4_WIDTH_MM && yi1 >= 0 && yi1 <= A4_HEIGHT_MM) {
                 pdf.line(xi1, yi1, xi2, yi2);
             }
@@ -612,16 +864,66 @@ function exportConePDF(dp, baseDiameter, windscreenHeight) {
             const yo1 = (-R * Math.sin(angleOuter) - minY) * scale - offsetY + 10;
             const xo2 = (r * Math.cos(angleOuter) - minX) * scale - offsetX + 10;
             const yo2 = (-r * Math.sin(angleOuter) - minY) * scale - offsetY + 10;
+
             if (xo1 >= 0 && xo1 <= A4_WIDTH_MM && yo1 >= 0 && yo1 <= A4_HEIGHT_MM) {
                 pdf.line(xo1, yo1, xo2, yo2);
             }
+
             pdf.setLineDash([]);
+
+            // ===== PRESE D'ARIA - SERIE 1: FORI DAL FONDO (ROSSI) =====
+            if (numeroForiFondo > 0 && diametroFori > 0) {
+                const slantHeightCalc = R - r;
+                const altezzaForiFondoPercent = (windscreenHeight - altezzaForiFondo) / windscreenHeight;
+                const raggioPosizioneFondo = r + (slantHeightCalc * altezzaForiFondoPercent);
+                const esclusioneLinguetta = angle * 0.05;
+                const angoloUtile = angle - 2 * esclusioneLinguetta;
+                const stepAngoloFondo = angoloUtile / (numeroForiFondo + 1);
+
+                pdf.setDrawColor(239, 68, 68);
+                pdf.setLineWidth(0.3);
+
+                for (let i = 1; i <= numeroForiFondo; i++) {
+                    const angolo = -angle / 2 + esclusioneLinguetta + (stepAngoloFondo * i);
+                    const xForo = (raggioPosizioneFondo * Math.cos(angolo) - minX) * scale - offsetX + 10;
+                    const yForo = (-raggioPosizioneFondo * Math.sin(angolo) - minY) * scale - offsetY + 10;
+                    const raggioForo = (diametroFori / 2) * scale;
+
+                    if (xForo >= 0 && xForo <= A4_WIDTH_MM && yForo >= 0 && yForo <= A4_HEIGHT_MM) {
+                        pdf.circle(xForo, yForo, raggioForo, 'S');
+                    }
+                }
+            }
+
+            // ===== PRESE D'ARIA - SERIE 2: FORI DALL'ALTO (BLU) =====
+            if (numeroForiAlto > 0 && diametroFori > 0) {
+                const slantHeightCalc = R - r;
+                const altezzaForiAltoPercent = altezzaForiAlto / windscreenHeight;
+                const raggioPosizioneAlto = r + (slantHeightCalc * altezzaForiAltoPercent);
+                const esclusioneLinguetta = angle * 0.05;
+                const angoloUtile = angle - 2 * esclusioneLinguetta;
+                const stepAngoloAlto = angoloUtile / (numeroForiAlto + 1);
+
+                pdf.setDrawColor(59, 130, 246);
+                pdf.setLineWidth(0.3);
+
+                for (let i = 1; i <= numeroForiAlto; i++) {
+                    const angolo = -angle / 2 + esclusioneLinguetta + (stepAngoloAlto * i);
+                    const xForo = (raggioPosizioneAlto * Math.cos(angolo) - minX) * scale - offsetX + 10;
+                    const yForo = (-raggioPosizioneAlto * Math.sin(angolo) - minY) * scale - offsetY + 10;
+                    const raggioForo = (diametroFori / 2) * scale;
+
+                    if (xForo >= 0 && xForo <= A4_WIDTH_MM && yForo >= 0 && yForo <= A4_HEIGHT_MM) {
+                        pdf.circle(xForo, yForo, raggioForo, 'S');
+                    }
+                }
+            }
 
             // ===== INFORMAZIONI =====
             pdf.setFontSize(8);
             pdf.setTextColor(100);
             pdf.text(`Pagina ${py * pagesX + px + 1} di ${numPages}`, 10, A4_HEIGHT_MM - 5);
-            
+
             if (px === 0 && py === 0) {
                 pdf.setFontSize(10);
                 pdf.setTextColor(0);
@@ -631,12 +933,11 @@ function exportConePDF(dp, baseDiameter, windscreenHeight) {
                 pdf.text(`Ø base: ${baseDiameter.toFixed(1)} mm`, 10, 15);
                 pdf.text(`Altezza: ${windscreenHeight.toFixed(1)} mm`, 10, 20);
                 pdf.text(`Angolo: ${(angle * 180 / Math.PI).toFixed(1)}°`, 10, 25);
-                
-                // Legenda chiusura a scorrimento
+
+/*                // Legenda chiusura a scorrimento
                 pdf.setFontSize(9);
                 pdf.setTextColor(0);
                 pdf.text('CHIUSURA A SCORRIMENTO:', 10, 35);
-                
                 pdf.setFontSize(8);
                 pdf.setDrawColor(59, 130, 246);
                 pdf.setLineDash([2, 2]);
@@ -644,14 +945,37 @@ function exportConePDF(dp, baseDiameter, windscreenHeight) {
                 pdf.setLineDash([]);
                 pdf.setTextColor(59, 130, 246);
                 pdf.text('Piega INTERNA (5mm verso interno)', 22, 40);
-                
+
                 pdf.setDrawColor(239, 68, 68);
                 pdf.setLineDash([2, 2]);
                 pdf.line(10, 44, 20, 44);
                 pdf.setLineDash([]);
                 pdf.setTextColor(239, 68, 68);
                 pdf.text('Piega ESTERNA (5mm verso esterno)', 22, 45);
-            }
+
+                // Legenda fori
+                if (numeroForiFondo > 0 || numeroForiAlto > 0) {
+                    pdf.setFontSize(9);
+                    pdf.setTextColor(0);
+                    pdf.text('FORI DI VENTILAZIONE:', 10, 55);
+
+                    if (numeroForiFondo > 0) {
+                        pdf.setFontSize(8);
+                        pdf.setDrawColor(239, 68, 68);
+                        pdf.circle(15, 58, 1, 'S');
+                        pdf.setTextColor(239, 68, 68);
+                        pdf.text(`${numeroForiFondo} fori rossi a ${altezzaForiFondo}mm dal fondo`, 22, 59);
+                    }
+
+                    if (numeroForiAlto > 0) {
+                        pdf.setFontSize(8);
+                        pdf.setDrawColor(59, 130, 246);
+                        pdf.circle(15, 63, 1, 'S');
+                        pdf.setTextColor(59, 130, 246);
+                        pdf.text(`${numeroForiAlto} fori blu a ${altezzaForiAlto}mm dall'alto`, 22, 64);
+                    }
+             }
+ */         }
 
             // Linee di taglio per assemblaggio multi-pagina
             if (numPages > 1) {

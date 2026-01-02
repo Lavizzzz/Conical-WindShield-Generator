@@ -1,21 +1,22 @@
 <!DOCTYPE html>
 <html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <meta name="description" content="Calcolatore per paravento conico - Progetta e stampa il tuo paravento per fornelli da campeggio">
-    <meta name="theme-color" content="#1a1a1a">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    
-    <!-- PWA / Mobile optimizations -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Paravento Conico">
-    
-    <title>Paravento Conico - Calcolatore</title>
-    <link rel="stylesheet" href="style.css">
-</head>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+        <meta name="description" content="Calcolatore per paravento conico - Progetta e stampa il tuo paravento per fornelli da campeggio">
+        <meta name="theme-color" content="#1a1a1a">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        
+        <!-- PWA / Mobile optimizations -->
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Paravento Conico">
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        <title>Paravento Conico - Calcolatore</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
 <body>
     <h1>Generatore Paravento Conico per Fornelli ad Alcool</h1>
     
@@ -32,6 +33,26 @@
         <button id="calcolaBtn">Calcola e Disegna</button>
         <button id="downloadSvgBtn">Scarica SVG</button>
         <button id="downloadPdfBtn">Scarica PDF (A4)</button>
+        
+    </div>
+
+    <!-- Sostituisci la sezione prese d'aria con: -->
+
+    <div class="input-field">
+        <label>
+            <input type="checkbox" id="preseAria"> Aggiungi prese d'aria (Ø 6mm)
+        </label>
+    </div>
+
+    <div id="preseAriaOptions" style="display: none;" class="input-group">
+        
+        <div class="input-field">
+            <label>Numero fori calcolato</label>
+            <div style="padding: 12px; background: #1a1a1a; border: 1px solid #262626; border-radius: 6px;">
+                <strong id="numeroForiCalcolato" style="color: #00d4ff; font-size: 1.1rem;">0</strong>
+            </div>
+        </div>
+        
     </div>
 
     <div class="risultati">
@@ -54,7 +75,6 @@
     </div>
 
     <script src="script.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
 </body>
 </html>
-

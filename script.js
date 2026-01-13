@@ -11,7 +11,7 @@ const numeroForiCalcolatoSpan = document.getElementById("numeroForiCalcolato");
 const diametroFori = 6;      // mm
 const distanzaFori = 1.5;
 const altezzaForiFondo = 10;     // 1 cm dal fondo
-const altezzaForiAlto = 20;      // 2 cm dall'alto (NUOVO!)
+const altezzaForiAlto = 10;      // 2 cm dall'alto (NUOVO!)
 
 const diametroBaseSpan = document.getElementById("diametroBase");
 const altezzaParaventoSpan = document.getElementById("altezzaParavento");
@@ -990,3 +990,4 @@ function exportConePDF(dp, baseDiameter, windscreenHeight, numeroForiFondo = 0, 
     // ===== SALVA PDF =====
     pdf.save("paravento-cono.pdf");
 }
+

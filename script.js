@@ -11,7 +11,7 @@ const numeroForiCalcolatoSpan = document.getElementById("numeroForiCalcolato");
 const diametroFori = 6;      // mm
 const distanzaFori = 1.5;
 const altezzaForiFondo = 10;     // 1 cm dal fondo
-const altezzaForiAlto = 10;      
+const altezzaForiAlto = 10;      // 2 cm dall'alto (NUOVO!)
 
 const diametroBaseSpan = document.getElementById("diametroBase");
 const altezzaParaventoSpan = document.getElementById("altezzaParavento");
@@ -555,7 +555,7 @@ document.getElementById("downloadPdfBtn").addEventListener("click", () => {
     exportConePDF(dp, baseDiameter, windscreenHeight, numeroForiFondo, numeroForiAlto, diametroFori, altezzaForiFondo, altezzaForiAlto);
 });
 
-function exportConeSVG(dp, baseDiameter, windscreenHeight, numeroFori = 0, diametroFori = 0, altezzaFori = 0) {
+function exportConeSVG(dp, baseDiameter, windscreenHeight, numeroForiFondo, numeroForiAlto, diametroFori, altezzaForiFondo, altezzaForiAlto) {
     // ===== GEOMETRIA =====
     const topRadius = dp / 2;
     const baseRadius = baseDiameter / 2;
@@ -990,5 +990,3 @@ function exportConePDF(dp, baseDiameter, windscreenHeight, numeroForiFondo = 0, 
     // ===== SALVA PDF =====
     pdf.save("paravento-cono.pdf");
 }
-
-
